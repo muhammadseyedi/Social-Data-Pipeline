@@ -25,10 +25,10 @@ class JobExtractor:
         
         Args:
             db: Database manager instance
-            nlp: NLP processor instance
+            nlp: NLP processor instance (optional, loaded on demand)
         """
         self.db = db or DatabaseManager()
-        self.nlp = nlp or NLPProcessor()
+        self.nlp = nlp  # Don't load by default
         self.date_parser = DateParser()
     
     def populate_from_social_extracts(self, limit: Optional[int] = None) -> int:
