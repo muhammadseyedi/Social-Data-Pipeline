@@ -1,182 +1,145 @@
 # Social Data Pipeline
 
-A complete data pipeline for collecting, processing, and analyzing
-job-related content from social media platforms. The system integrates
-scrapers, text-processing components, and NLP models to transform raw
-posts into structured, searchable job information.
+A Python project for collecting job-related posts from social platforms and transforming them into structured records. The repository includes Telegram, LinkedIn, and X/Twitter collection code, OCR helpers, translation/text-cleaning utilities, NLP extraction, and SQL Server persistence.
 
-## Features
+> **Project status:** this repository requires local credentials, SQL Server, and platform-specific setup. Scrapers can also be affected by external site changes and access restrictions. The documented commands have not been validated here against a freshly provisioned SQL Server environment.
 
-### Multi-platform Data Collection
+## What it contains
 
--   Telegram channel scraping (real-time and batch)
--   LinkedIn post extraction
--   X/Twitter post scraping
-
-### Advanced Processing
-
--   OCR text extraction from images
--   Automatic translation (English → Persian)
--   Entity extraction using spaCy
--   Job information parsing and structuring
-
-### Real-time and Scheduled Workflows
-
--   Event-driven Telegram listener
--   Scheduled scraping of pending links
--   Asynchronous processing pipeline
-
-### Reliable Data Storage
-
--   SQL Server integration
--   Normalized relational schema
--   Transaction-safe operations
+- Telegram message collection and a real-time listener.
+- Scraping of links/posts from X and LinkedIn.
+- OCR support for downloaded images using Tesseract.
+- Text cleaning, translation, and spaCy-based entity extraction.
+- SQL Server schema and database access helpers.
+- A command-line interface for running the pipeline in stages.
 
 ## Requirements
 
--   Python 3.9+
--   SQL Server 2017+ or Azure SQL Database
--   ODBC Driver 17 for SQL Server
--   Tesseract OCR (optional)
--   Chrome/Chromium (for Selenium automation)
+- Python 3.9 or newer.
+- SQL Server (local or remote) and a compatible Microsoft ODBC driver.
+- Telegram API credentials for Telegram collection.
+- Tesseract OCR if you plan to run OCR.
+- Chrome/Chromium if required by the Selenium-based scrapers.
+- Network access to download Python packages and spaCy's language model.
 
 ## Installation
 
-### 1. Clone the repository
+Clone the repository using its actual GitHub URL:
 
-``` bash
-git clone https://github.com/muhammadseyedi/social-pipeline.git
-cd social-pipeline
+```bash
+git clone https://github.com/muhammadseyedi/Social-Data-Pipeline.git
+cd Social-Data-Pipeline
+python -m venv .venv
 ```
 
-### 2. Create a virtual environment
+Activate the environment:
 
-``` bash
-python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
+```bash
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# Linux/macOS
+source .venv/bin/activate
 ```
 
-### 3. Install dependencies
+Install Python dependencies and the spaCy English model:
 
-``` bash
-pip install -r requirements.txt
-```
-
-### 4. Download spaCy models
-
-``` bash
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 python -m spacy download en_core_web_sm
-# Optional:
-# python -m spacy download en_core_web_trf
 ```
 
-### 5. Install Tesseract (optional)
-
-Windows:\
-https://github.com/UB-Mannheim/tesseract/wiki
-
-Linux:
-
-``` bash
-sudo apt-get install tesseract-ocr
-```
-
-macOS:
-
-``` bash
-brew install tesseract
-```
+Install Tesseract only if you need OCR. On Windows, an installer is available from the [UB Mannheim Tesseract build page](https://github.com/UB-Mannheim/tesseract/wiki); on Debian/Ubuntu, use `sudo apt-get install tesseract-ocr`.
 
 ## Configuration
 
-### 1. Copy the environment file
+Copy the example environment file and replace placeholder values:
 
-``` bash
+```bash
+# Windows PowerShell
+Copy-Item .env.example .env
+
+# Linux/macOS
 cp .env.example .env
 ```
 
-### 2. Set environment variables
+At minimum, configure `TG_API_ID`, `TG_API_HASH`, and the SQL Server settings before using the related commands. Use `SQL_TRUSTED=1` for Windows integrated authentication; otherwise set `SQL_TRUSTED=0`, `SQL_UID`, and `SQL_PWD`. Keep real credentials in your local `.env` file only—never commit it.
 
-Edit `.env` with your own credentials.
+The code loads `.env` when `python-dotenv` is installed. Environment variables set by your shell are also supported.
 
-### 3. Generate a Telegram session string
-
-``` python
-from telethon.sync import TelegramClient
-from telethon.sessions import StringSession
-
-API_ID = your_api_id
-API_HASH = "your_api_hash"
-
-with TelegramClient(StringSession(), API_ID, API_HASH) as client:
-    print(client.session.save())
-```
+For OCR, set `TESSERACT_CMD` to the installed executable path and choose `OCR_LANG` as needed. The default command-line OCR language is English; install the corresponding Tesseract language data if you need another language.
 
 ## Usage
 
-### Initialize the database
+Run commands from the repository root:
 
-``` bash
+```bash
+# Show all commands
+python -m src.cli help
+
+# Create/verify database tables
 python -m src.cli db
-```
 
-### Batch operations
-
-``` bash
+# Collect Telegram messages (example: 100)
 python -m src.cli telegram 100
+
+# Scrape already-collected X and LinkedIn links
 python -m src.cli scrape-x
 python -m src.cli scrape-li
+python -m src.cli scrape-all
+
+# Process extracted text and create job records
 python -m src.cli process
 python -m src.cli populate-jobs
-python -m src.cli nlp-run
-```
 
-### Real-time mode
+# Run NLP entity extraction (example limit: 200)
+python -m src.cli nlp 200
 
-``` bash
+# Run OCR for images that do not have OCR text
+python -m src.cli ocr
+
+# Start the real-time listener and scheduled tasks
 python -m src.cli realtime
+
+# Check configuration and database status
+python -m src.cli config
+python -m src.cli status
 ```
 
-### Preview stored data
+The commands are stages of a pipeline; configure and verify their prerequisites before running them. The `drop-db` command is destructive and removes database tables, so use it only when you explicitly intend to reset the database.
 
-``` bash
-python -m src.cli preview Posts 10
-python -m src.cli preview SocialExtracts 20
-python -m src.cli preview JobPosts 15
+## Database overview
+
+The main entities are linked in this order:
+
+```text
+Posts
+└── MediaItems
+    └── Links
+        └── SocialExtracts
+            └── JobPosts
 ```
 
-## Database Schema
+The database is created/verified by the `db` command. The SQL Server instance and account must have the permissions required to create and update the project tables.
 
-    Posts
-     └── MediaItems
-           └── Links
-                 └── SocialExtracts
-                       └── JobPosts
+## Project structure
 
-## Testing
-
-``` bash
-pytest tests/
-pytest --cov=src tests/
+```text
+src/
+├── cli.py
+├── config.py
+├── database/
+├── extractors/
+├── processors/
+├── scrapers/
+└── utils/
 ```
 
-## Project Structure
+## Testing and limitations
 
-    social-pipeline/
-    ├── src/
-    │   ├── config.py
-    │   ├── database/
-    │   ├── scrapers/
-    │   ├── processors/
-    │   ├── extractors/
-    │   └── cli.py
-    └── tests/
+An automated `tests/` suite is not currently included in the repository, so no claim of test-suite coverage is made here. Before using this project for real data collection, test each configured source and database operation in your own environment. External platforms may change their HTML, rate limits, or authentication requirements.
 
 ## Acknowledgments
 
--   Telethon
--   spaCy
--   Selenium
--   pytesseract
-
-Project link: https://github.com/muhammadseyedi/social-pipeline
+This project uses Telethon, Selenium, spaCy, pytesseract, and other open-source Python libraries.
